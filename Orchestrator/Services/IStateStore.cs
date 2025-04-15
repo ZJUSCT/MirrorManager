@@ -8,5 +8,4 @@ public interface IStateStore
     IEnumerable<KeyValuePair<string, MirrorItemInfo>> GetMirrorItemInfos();
     MirrorItemInfo? GetMirrorItemInfoById(string id);
     void SetMirrorInfo(SavedInfo info);
-    void SetMirrorInfo(MirrorStatus status, MirrorItemInfo mirrorItemInfo);
 }

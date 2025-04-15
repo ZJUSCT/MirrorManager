@@ -18,14 +18,25 @@ public class TestJobQueue
                     JobName = $"job-{id}", Interval = new IntervalInfo(interval), Timeout = new IntervalInfo(interval),
                     Image = "", Pull = PullStrategy.Always, Volumes = [], Command = [], Environments = []
                 }
-            })
-            { Status = status, LastSyncAt = lastSyncAt };
+            },
+            new SavedInfo()
+            {
+                Id = id,
+                Status = status,
+                LastSyncAt = lastSyncAt,
+            }
+        );
+    }
+
+    private string ToTimeString(DateTime time)
+    {
+        return $"{time:HH:mm:ss}";
     }
 
     private void PrintMirrorStatus(IStateStore store)
     {
         foreach (var kv in store.GetMirrorItemInfos())
-            Console.WriteLine($"{kv.Key}: {kv.Value.Status} LSA:{kv.Value.LastSyncAt.ToShortTimeString()}");
+            Console.WriteLine($"  {kv.Key}: {kv.Value.SavedInfo.Status} LastSyncAt:{ToTimeString(kv.Value.SavedInfo.LastSyncAt)} NextSyncAt:{ToTimeString(kv.Value.NextSyncAt())}");
     }
 
     [SetUp]
@@ -49,7 +60,7 @@ public class TestJobQueue
         var logger = new MockLogger<JobQueue>();
         var stateStore = new MockStateStore(itemInfos);
         var jobQueue = new JobQueue(conf, logger, stateStore);
-        jobQueue.CoolDown = TimeSpan.FromSeconds(1);
+        jobQueue.CoolDown = TimeSpan.FromMilliseconds(1);
 
         PrintMirrorStatus(stateStore);
 
@@ -109,6 +120,7 @@ public class TestJobQueue
             Assert.That(gotJob, Is.True);
             jobs.Add(job!);
             logger.LogInformation("Got job {jobId} for {mirrorId}", job!.Guid, job.MirrorItem.Config.Id);
+            PrintMirrorStatus(stateStore);
         }
 
         foreach (var j in jobs) jobQueue.UpdateJobStatus(j.Guid, MirrorStatus.Succeeded);
@@ -172,6 +184,7 @@ public class TestJobQueue
         for (var i = 0; i < 3; ++i)
         {
             gotJob = jobQueue.TryGetNewJob("", out job);
+            PrintMirrorStatus(stateStore);
             Assert.That(gotJob, Is.True);
             jobs.Add(job!);
             logger.LogInformation("Got job {jobId} for {mirrorId}", job!.Guid, job.MirrorItem.Config.Id);

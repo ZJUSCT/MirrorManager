@@ -32,17 +32,17 @@ public partial class Mirrors
                     ]),
                     TBody(mirrors
                         .Select(kv => kv.Value)
-                        .OrderBy(x => x.Status)
+                        .OrderBy(x => x.SavedInfo.Status)
                         .ThenBy(x => x.Config.Id)
                         .Select(x => Tr([
                             Th(x.Config.Id),
                             Td(x.Config.Info.Url),
                             Td(x.Config.Info.Name.En),
                             Td(x.Config.Info.Upstream),
-                            Td(x.Size.ToString()),
-                            Td(StatusToString(x.Status)),
-                            Td(x.LastSyncAt.ToString(CultureInfo.InvariantCulture)),
-                            Td(x.LastSuccessAt.ToString(CultureInfo.InvariantCulture)),
+                            Td(x.SavedInfo.Size.ToString()),
+                            Td(StatusToString(x.SavedInfo.Status)),
+                            Td(x.SavedInfo.LastSyncAt.ToString(CultureInfo.InvariantCulture)),
+                            Td(x.SavedInfo.LastSuccessAt.ToString(CultureInfo.InvariantCulture)),
                             Td(x.NextSyncAt().ToString(CultureInfo.InvariantCulture)),
                         ]))
                         .ToList())

@@ -38,13 +38,39 @@ X-Worker-Token: {{WorkerToken}}
 
 ###
 
-PUT {{UrlBase}}/jobs/b98df4ff-4681-43fa-a492-9a19a1720e10
+PUT {{UrlBase}}/jobs/77b9e3e9-11b9-4bb2-85da-f26fb27a7e17
 Accept: application/json
 Content-Type: application/json
 X-Worker-Token: {{WorkerToken}}
 
 {
   "status": 0
+}
+
+###
+
+PUT {{UrlBase}}/jobs/8c68fbbb-6d8f-44a4-91a2-b67edd8208e4
+Accept: application/json
+Content-Type: application/json
+X-Worker-Token: {{WorkerToken}}
+
+{
+  "status": 1,
+  "size": 100000,
+  "artifacts": [
+    {
+      "priority": 10,
+      "name": "foo ISO",
+      "url": "/aaaa/bbbb.iso",
+      "description": "test"
+    },
+    {
+      "priority": 12,
+      "name": "foo ISO (old)",
+      "url": "/aaaa/bbbb2.iso",
+      "description": "test2"
+    }
+  ]
 }
 
 ###

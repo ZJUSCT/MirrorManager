@@ -18,13 +18,14 @@ public class MirrorZInfo(IConfiguration conf, ILogger<MirrorZInfo> log, JobQueue
     /// <returns>MirrorZ status.</returns>
     private string TransformStatus(MirrorItemInfo item)
     {
-        if (item.Status == MirrorStatus.Cached) return "C";
-        if (item.Status == MirrorStatus.Succeeded)
-            return $"S{item.LastSuccessAt.ToUnixTimeSeconds()}X{item.NextSyncAt().ToUnixTimeSeconds()}";
-        if (item.Status == MirrorStatus.Syncing)
-            return $"Y{item.LastSyncAt.ToUnixTimeSeconds()}O{item.LastSuccessAt.ToUnixTimeSeconds()}";
-        if (item.Status == MirrorStatus.Failed)
-            return $"F{item.LastSyncAt.ToUnixTimeSeconds()}O{item.LastSuccessAt.ToUnixTimeSeconds()}";
+        var status = item.SavedInfo.Status;
+        if (status == MirrorStatus.Cached) return "C";
+        if (status == MirrorStatus.Succeeded)
+            return $"S{item.SavedInfo.LastSuccessAt.ToUnixTimeSeconds()}X{item.NextSyncAt().ToUnixTimeSeconds()}";
+        if (status == MirrorStatus.Syncing)
+            return $"Y{item.SavedInfo.LastSyncAt.ToUnixTimeSeconds()}O{item.SavedInfo.LastSuccessAt.ToUnixTimeSeconds()}";
+        if (status == MirrorStatus.Failed)
+            return $"F{item.SavedInfo.LastSyncAt.ToUnixTimeSeconds()}O{item.SavedInfo.LastSuccessAt.ToUnixTimeSeconds()}";
         return "U";
     }
 

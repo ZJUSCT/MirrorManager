@@ -33,6 +33,7 @@ public class JobQueue
     private readonly IStateStore _stateStore;
     private readonly ConcurrentDictionary<Guid, SyncJob> _syncingDict = new();
     private readonly ConcurrentDictionary<string, byte> _forceRefreshDict = new();
+
     /// <summary>
     /// Indicates the last time the job queue was active (the last communication with worker) .
     /// </summary>
@@ -65,14 +66,15 @@ public class JobQueue
             .Select(x => x.Value)
             .Where(x => x.Config.Info.Type == SyncType.Sync)
             .OrderBy(x => x.NextSyncAt())
-            .Select(x => new SyncJob(x, x.Config.Sync!.Interval.GetNextSyncTime(x.LastSyncAt)));
+            .Select(x => new SyncJob(x, x.Config.Sync!.Interval.GetNextSyncTime(x.SavedInfo.LastSyncAt)));
 
         using var guard = new ScopeWriteLock(_rwLock);
         // Remove all pending jobs
         _pendingQueue.Clear();
-        // DO NOT clear _syncingDict since workers may still be working on them
+        // DO NOT clear _syncingDict since workers may still be working on them,
         // and we need to update their status
         _syncingDict.ForEach(x => x.Value.Stale = true);
+        _forceRefreshDict.Clear();
 
         // Enqueue new jobs
         syncJobs.ForEach(x => _pendingQueue.Enqueue(x));
@@ -131,8 +133,9 @@ public class JobQueue
         {
             _log.LogWarning("Job {guid}({id}) took too long, marking as failed", job.Guid,
                 job.MirrorItem.Config.Id);
-            job.MirrorItem.LastSyncAt = job.TaskStartedAt;
-            _stateStore.SetMirrorInfo(MirrorStatus.Failed, job.MirrorItem);
+            job.MirrorItem.SavedInfo.Status = MirrorStatus.Failed;
+            job.MirrorItem.SavedInfo.LastSyncAt = job.TaskStartedAt;
+            _stateStore.SetMirrorInfo(job.MirrorItem.SavedInfo);
 
             if (job.Stale) continue;
 
@@ -192,13 +195,19 @@ public class JobQueue
 
         job.TaskStartedAt = DateTime.Now;
         job.WorkerId = workerId;
-        job.MirrorItem.LastSyncAt = DateTime.Now;
+        job.MirrorItem.SavedInfo.LastSyncAt = DateTime.Now;
         _syncingDict[job.Guid] = job;
-        _stateStore.SetMirrorInfo(MirrorStatus.Syncing, job.MirrorItem);
+        job.MirrorItem.SavedInfo.Status = MirrorStatus.Syncing;
+        _stateStore.SetMirrorInfo(job.MirrorItem.SavedInfo);
         return true;
     }
 
     public void UpdateJobStatus(Guid guid, MirrorStatus status)
+    {
+        UpdateJobStatus(guid, status, -1, []);
+    }
+
+    public void UpdateJobStatus(Guid guid, MirrorStatus status, long? size, List<MirrorArtifact>? artifacts)
     {
         LastActive = DateTime.Now;
         using var guard = new ScopeReadLock(_rwLock);
@@ -217,10 +226,21 @@ public class JobQueue
 
         if (status == MirrorStatus.Succeeded)
         {
-            job.MirrorItem.LastSuccessAt = DateTime.Now;
+            job.MirrorItem.SavedInfo.LastSuccessAt = DateTime.Now;
         }
 
-        _stateStore.SetMirrorInfo(status, job.MirrorItem);
+        job.MirrorItem.SavedInfo.Status = status;
+        if (size != null)
+        {
+            job.MirrorItem.SavedInfo.Size = size.Value;
+        }
+
+        if (artifacts != null)
+        {
+            job.MirrorItem.SavedInfo.Artifacts = artifacts;
+        }
+
+        _stateStore.SetMirrorInfo(job.MirrorItem.SavedInfo);
 
         if (job.Stale) return;
         _pendingQueue.Enqueue(new SyncJob(job));

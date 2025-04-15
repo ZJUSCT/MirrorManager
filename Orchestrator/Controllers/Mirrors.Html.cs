@@ -8,6 +8,9 @@ using static MiniHtmlGenerator;
 
 public partial class Mirrors
 {
+    /// <summary>
+    /// Mirror details in human-readable format.
+    /// </summary>
     [HttpGet("html")]
     [Produces("text/html")]
     public string GetMirrorsHtml()

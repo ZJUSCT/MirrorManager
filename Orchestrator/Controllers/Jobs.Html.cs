@@ -9,6 +9,9 @@ using static MiniHtmlGenerator;
 
 public partial class Jobs
 {
+    /// <summary>
+    /// Job details in human-readable format.
+    /// </summary>
     [HttpGet("html")]
     [Produces("text/html")]
     public ActionResult<string> GetJobsHtml([FromQuery] string token)

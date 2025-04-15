@@ -2,6 +2,11 @@
 
 namespace Orchestrator.DataModels;
 
+/// <summary>
+/// A saved info is a record of the last sync status.
+/// Currently, we only store what is necessary for a refresh startup.
+/// Job queue is not saved for simplicity.
+/// </summary>
 public class SavedInfo
 {
     [Key] [MaxLength(42)] public required string Id { get; set; }

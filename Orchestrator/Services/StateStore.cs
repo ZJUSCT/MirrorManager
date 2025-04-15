@@ -6,6 +6,9 @@ using Orchestrator.Utils;
 
 namespace Orchestrator.Services;
 
+/// <summary>
+/// The service that manages all persistent information.
+/// </summary>
 public class StateStore : IStateStore
 {
     private readonly IConfiguration _conf;

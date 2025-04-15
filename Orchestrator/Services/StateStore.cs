@@ -56,34 +56,23 @@ public class StateStore : IStateStore
         // add new configs to memory and db
         foreach (var conf in confs)
         {
-            var newInfo = new MirrorItemInfo(conf)
-            {
-                Status = MirrorStatus.Unknown,
-                LastSyncAt = DateTimeConstants.UnixEpoch,
-                LastSuccessAt = DateTimeConstants.UnixEpoch
-            };
             var savedInfo = savedInfos.FirstOrDefault(x => x.Id == conf.Id);
-            if (savedInfo != null)
+            if (savedInfo == null)
             {
-                newInfo.Status = savedInfo.Status;
-                newInfo.LastSyncAt = savedInfo.LastSyncAt.ToLocalTime();
-                newInfo.LastSuccessAt = savedInfo.LastSuccessAt.ToLocalTime();
-                newInfo.Size = savedInfo.Size;
-            }
-            else
-            {
-                db.SavedInfos.Add(new SavedInfo
+                savedInfo = new SavedInfo
                 {
                     Id = conf.Id,
                     Status = MirrorStatus.Unknown,
                     LastSyncAt = DateTimeConstants.UnixEpoch,
                     LastSuccessAt = DateTimeConstants.UnixEpoch
-                });
+                };
+                db.SavedInfos.Add(savedInfo);
             }
 
+            var newInfo = new MirrorItemInfo(conf, savedInfo);
             if (conf.Info.Type == SyncType.Cached)
             {
-                newInfo.Status = MirrorStatus.Cached;
+                newInfo.SavedInfo.Status = MirrorStatus.Cached;
             }
 
             itemInfos.Add(conf.Id, newInfo);
@@ -120,24 +109,24 @@ public class StateStore : IStateStore
         var item = _mirrorItems.FirstOrDefault(x => x.Key == info.Id);
         if (item.Key == null) return;
 
-        using (var guard = new ScopeWriteLock(_rwLock))
-        {
-            item.Value.Status = info.Status;
-            item.Value.LastSyncAt = info.LastSyncAt;
-            item.Value.LastSuccessAt = info.LastSuccessAt;
-            item.Value.Size = info.Size;
-        }
-
-        using var scope = _sp.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OrchDbContext>();
-        db.SavedInfos.Update(new SavedInfo
+        var savedInfo = new SavedInfo
         {
             Id = info.Id,
             Status = info.Status,
             LastSyncAt = info.LastSyncAt.ToUniversalTime(),
             LastSuccessAt = info.LastSuccessAt.ToUniversalTime(),
-            Size = info.Size
-        });
+            Size = info.Size,
+            Artifacts = info.Artifacts,
+        };
+
+        using (var guard = new ScopeWriteLock(_rwLock))
+        {
+            item.Value.SavedInfo = savedInfo;
+        }
+
+        using var scope = _sp.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrchDbContext>();
+        db.SavedInfos.Update(savedInfo);
 
         try
         {
@@ -147,17 +136,5 @@ public class StateStore : IStateStore
         {
             _log.LogError("Failed to save mirror info to db: {e}", e);
         }
-    }
-
-    public void SetMirrorInfo(MirrorStatus status, MirrorItemInfo mirrorItemInfo)
-    {
-        SetMirrorInfo(new SavedInfo
-        {
-            Id = mirrorItemInfo.Config.Id,
-            Status = status,
-            LastSyncAt = mirrorItemInfo.LastSyncAt,
-            LastSuccessAt = mirrorItemInfo.LastSuccessAt,
-            Size = mirrorItemInfo.Size
-        });
     }
 }

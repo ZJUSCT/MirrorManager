@@ -63,11 +63,12 @@ public partial class Mirrors(IConfiguration conf, JobQueue jobQueue) : CustomCon
         I18NField Name,
         I18NField Desc,
         string Upstream,
-        string Size,
+        long Size,
         string Status,
         long LastUpdated,
         long NextScheduled,
-        long LastSuccess)
+        long LastSuccess,
+        List<MirrorArtifact> Artifacts)
     {
         public MirrorItemDto(MirrorItemInfo item) : this(
             item.Config.Id,
@@ -75,12 +76,13 @@ public partial class Mirrors(IConfiguration conf, JobQueue jobQueue) : CustomCon
             item.Config.Info.Name,
             item.Config.Info.Description,
             item.Config.Info.Upstream,
-            FileSizeUtil.ToString(item.Size),
-            StatusToString(item.Status),
-            item.LastSyncAt.ToUnixTimeSeconds(),
+            item.SavedInfo.Size,
+            StatusToString(item.SavedInfo.Status),
+            item.SavedInfo.LastSyncAt.ToUnixTimeSeconds(),
             item.NextSyncAt().ToUnixTimeSeconds(),
-            item.LastSuccessAt.ToUnixTimeSeconds()
-            )
+            item.SavedInfo.LastSuccessAt.ToUnixTimeSeconds(),
+            item.SavedInfo.Artifacts
+        )
         {
         }
     }

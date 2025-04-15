@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Orchestrator.DataModels;
 using Orchestrator.Services;
 using Orchestrator.Utils;
@@ -81,7 +80,7 @@ public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQu
             return Unauthorized(null);
         }
 
-        jobQueue.UpdateJobStatus(jobId, req.Status);
+        jobQueue.UpdateJobStatus(jobId, req.Status, req.Size ?? 0, req.Artifacts ?? []);
         return Ok(Success<object>(null));
     }
 
@@ -117,7 +116,7 @@ public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQu
         List<string> Command,
         List<string> Environments);
 
-    public record UpdateReq(MirrorStatus Status);
+    public record UpdateReq(MirrorStatus Status, long? Size, List<MirrorArtifact>? Artifacts);
 
     public record ForceRefreshReq(string MirrorId);
 }

@@ -34,18 +34,11 @@ public class MockStateStore : IStateStore
         var item = _mirrorItems.FirstOrDefault(x => x.Key == info.Id);
         if (item.Key == null) return;
 
-        item.Value.Status = info.Status;
-        item.Value.LastSyncAt = info.LastSyncAt;
-        item.Value.Size = info.Size;
+        item.Value.SavedInfo = info;
     }
 
     public void SetMirrorItems(IEnumerable<MirrorItemInfo> items)
     {
         _newMirrorItems = items.ToList();
-    }
-    
-    public void SetMirrorInfo(MirrorStatus status, MirrorItemInfo mirrorItemInfo)
-    {
-        throw new NotImplementedException();
     }
 }

@@ -22,6 +22,10 @@ public partial class Mirrors(IConfiguration conf, JobQueue jobQueue) : CustomCon
         };
     }
 
+    /// <summary>
+    /// Return all mirrors' status.
+    /// </summary>
+    /// <returns>List of <see cref="MirrorItemDto"/>.</returns>
     [HttpGet("")]
     [OutputCache(Duration = 30)]
     public ActionResult<IList<MirrorItemDto>> GetAllMirrors()
@@ -32,6 +36,11 @@ public partial class Mirrors(IConfiguration conf, JobQueue jobQueue) : CustomCon
             .Select(x => new MirrorItemDto(x)));
     }
 
+    /// <summary>
+    /// Return a specific mirror's status.
+    /// </summary>
+    /// <param name="id">ID of the specific mirror.</param>
+    /// <returns><see cref="MirrorItemDto"/></returns>
     [HttpGet("{id}")]
     [OutputCache(Duration = 30)]
     public ActionResult<MirrorItemDto> GetMirrorById([FromRoute] string id)
@@ -40,6 +49,11 @@ public partial class Mirrors(IConfiguration conf, JobQueue jobQueue) : CustomCon
         return mirror == null ? NotFound() : Ok(new MirrorItemDto(mirror));
     }
 
+    /// <summary>
+    /// Return the last active time of the job queue in unix timestamp.
+    /// Notice that the job queue is passively updated, it returns the last worker communication timestamp.
+    /// </summary>
+    /// <returns>unix timestamp in seconds.</returns>
     [HttpGet("lastActive")]
     public ActionResult<long> GetLastActiveTime() => Ok(jobQueue.LastActive.ToUnixTimeSeconds());
 

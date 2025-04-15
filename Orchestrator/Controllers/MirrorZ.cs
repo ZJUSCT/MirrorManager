@@ -11,6 +11,11 @@ namespace Orchestrator.Controllers;
 [Produces("application/json")]
 public class MirrorZInfo(IConfiguration conf, ILogger<MirrorZInfo> log, JobQueue jobQueue) : CustomControllerBase(conf)
 {
+    /// <summary>
+    /// Transforms the status of a mirror item into a string format for MirrorZ.
+    /// </summary>
+    /// <param name="item">MirrorItemInfo to be transformed.</param>
+    /// <returns>MirrorZ status.</returns>
     private string TransformStatus(MirrorItemInfo item)
     {
         if (item.Status == MirrorStatus.Cached) return "C";
@@ -22,7 +27,11 @@ public class MirrorZInfo(IConfiguration conf, ILogger<MirrorZInfo> log, JobQueue
             return $"F{item.LastSyncAt.ToUnixTimeSeconds()}O{item.LastSuccessAt.ToUnixTimeSeconds()}";
         return "U";
     }
-    
+
+    /// <summary>
+    /// Return mirrors' status in mirrorz's format.
+    /// </summary>
+    /// <returns></returns>
     [HttpGet("")]
     [OutputCache(Duration = 30)]
     public ActionResult<MirrorZData> GetMirrorZData()

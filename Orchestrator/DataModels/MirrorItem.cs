@@ -2,6 +2,9 @@
 
 namespace Orchestrator.DataModels;
 
+/// <summary>
+/// A mirror item is the config with runtime information.
+/// </summary>
 public class MirrorItemInfo
 {
     public MirrorItemInfo(ConfigInfo config)
@@ -35,8 +38,21 @@ public class SyncJob(MirrorItemInfo mirrorItemInfo, DateTime shouldStartAt, stri
 {
     public Guid Guid { get; } = Guid.NewGuid();
     public MirrorItemInfo MirrorItem { get; } = mirrorItemInfo;
+    /// <summary>
+    /// A job will be stale if
+    /// 1) the job queue is reloaded and
+    /// 2) the job is in the syncing queue.
+    /// If the job is stale,
+    /// the job will be permanently removed from the queue once it finished.
+    /// </summary>
     public bool Stale { get; set; } = false;
+    /// <summary>
+    /// When the task should be started, based on the <see cref="IntervalInfo"/>.
+    /// </summary>
     public DateTime TaskShouldStartAt { get; set; } = shouldStartAt;
+    /// <summary>
+    /// When the task is actually fetched by a worker.
+    /// </summary>
     public DateTime TaskStartedAt { get; set; } = DateTimeConstants.UnixEpoch;
     public string WorkerId { get; set; } = workerId;
 

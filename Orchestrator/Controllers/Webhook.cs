@@ -12,6 +12,10 @@ public class Webhook(IConfiguration conf, ILogger<Webhook> log, JobQueue jobQueu
         Request.Headers.TryGetValue("X-Webhook-Token", out var values)
         && values.Contains(Conf["WebhookToken"]);
 
+    /// <summary>
+    /// Reload job queue. See <see cref="JobQueue.Reload"/>.
+    /// </summary>
+    /// <returns>count for pending jobs, syncing jobs and mirror item infos.</returns>
     [HttpPost("reload")]
     public IActionResult Reload()
     {

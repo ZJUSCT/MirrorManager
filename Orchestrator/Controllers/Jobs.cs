@@ -6,6 +6,10 @@ using Orchestrator.Utils;
 
 namespace Orchestrator.Controllers;
 
+/// <summary>
+/// Worker API.
+/// Request to APIs in this controller should only be allowed in trusted zones.
+/// </summary>
 [ApiController]
 [Route("/jobs")]
 public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQueue) : CustomControllerBase(conf)
@@ -14,6 +18,9 @@ public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQu
         Request.Headers.TryGetValue("X-Worker-Token", out var values)
         && values.Contains(Conf["WorkerToken"]);
 
+    /// <summary>
+    /// Get all (both pending and syncing) jobs' information.
+    /// </summary>
     [HttpGet("")]
     public ActionResult<GetJobsRes> GetJobs()
     {
@@ -27,6 +34,14 @@ public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQu
         return Ok(new GetJobsRes(pendingJobs, syncingJobs));
     }
 
+    /// <summary>
+    /// A fetch is a request from a worker to get a new job.
+    /// </summary>
+    /// <param name="req">For worker ID.</param>
+    /// <returns>
+    /// If the job queue is not empty, returns the job info and updates the job queue.
+    /// Otherwise, an error "NO_PENDING_JOB" is returned.
+    /// </returns>
     [HttpPost("fetch")]
     public ActionResult<ResponseDto<FetchRes>> FetchNewJob([FromBody] FetchReq req)
     {
@@ -51,6 +66,12 @@ public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQu
         )));
     }
 
+    /// <summary>
+    /// Updates the job status from worker report. See <see cref="JobQueue.UpdateJobStatus"/>.
+    /// We intentionally do not check if worker id is valid here for maintenance convenience.
+    /// </summary>
+    /// <param name="jobId">Job ID in GUID format.</param>
+    /// <param name="req">New mirror status.</param>
     [HttpPut("{jobId}")]
     public ActionResult<ResponseDto<object>> UpdateJobStatus([FromRoute] Guid jobId, [FromBody] UpdateReq req)
     {
@@ -64,6 +85,10 @@ public partial class Jobs(IConfiguration conf, ILogger<Jobs> log, JobQueue jobQu
         return Ok(Success<object>(null));
     }
 
+    /// <summary>
+    /// Force refresh a mirror item's status. See <see cref="JobQueue.ForceRefresh"/>.
+    /// </summary>
+    /// <param name="req">Mirror item ID.</param>
     [HttpPost("forceRefresh")]
     public ActionResult<ResponseDto<object>> ForceRefresh([FromBody] ForceRefreshReq req)
     {

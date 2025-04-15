@@ -5,6 +5,25 @@ using Orchestrator.Utils;
 
 namespace Orchestrator.Services;
 
+/// <summary>
+/// The service that manages all runtime information.
+///                               UpdateJobStatus()
+///             ┌─────────────────────────────────────────────────────┐
+///             │                                                     │
+///             ├──────────────────────────────┐                      │
+///           ┌─▼────────────┐                 │   ┌───────────────┐  │
+///  Reload() │Status: ---   │ TryGetNewJob()  │   │Status: Syncing│  │
+/// ─────────►│Stale: false  ├─────────────────┴──►│Stale: false   ┼──┘
+///           │Queue: Pending│ check for           │Queue: Syncing │
+///           └─┬────────────┘ .TaskShouldStartAt  └─┬─────────────┘
+///             │                                    │
+///             │ Reload()                           │ Reload()
+///           ┌─▼────────────┐  CheckLostJobs()    ┌─▼─────────────┐
+///           │(Discarded)   │◄────────────────────┤Status: Syncing│
+///           └──────────────┘  UpdateJobStatus()  │Stale: true    │
+///                                                │Queue: Syncing │
+///                                                └───────────────┘
+/// </summary>
 public class JobQueue
 {
     private readonly IConfiguration _conf;
@@ -14,6 +33,9 @@ public class JobQueue
     private readonly IStateStore _stateStore;
     private readonly ConcurrentDictionary<Guid, SyncJob> _syncingDict = new();
     private readonly ConcurrentDictionary<string, byte> _forceRefreshDict = new();
+    /// <summary>
+    /// Indicates the last time the job queue was active (the last communication with worker) .
+    /// </summary>
     public DateTime LastActive { get; private set; } = DateTime.Now;
 
     public JobQueue(IConfiguration conf, ILogger<JobQueue> log, IStateStore stateStore)
@@ -25,11 +47,20 @@ public class JobQueue
         Reload();
     }
 
+    /// <summary>
+    /// The time to wait before a finished job to be enqueued again.
+    /// </summary>
     public TimeSpan CoolDown { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Reload configs and job queue.
+    /// </summary>
     public void Reload()
     {
+        // Reload configs from json files
         _stateStore.Reload();
+
+        // Generate job objects from configs
         var syncJobs = _stateStore.GetMirrorItemInfos()
             .Select(x => x.Value)
             .Where(x => x.Config.Info.Type == SyncType.Sync)
@@ -37,10 +68,13 @@ public class JobQueue
             .Select(x => new SyncJob(x, x.Config.Sync!.Interval.GetNextSyncTime(x.LastSyncAt)));
 
         using var guard = new ScopeWriteLock(_rwLock);
+        // Remove all pending jobs
         _pendingQueue.Clear();
         // DO NOT clear _syncingDict since workers may still be working on them
         // and we need to update their status
         _syncingDict.ForEach(x => x.Value.Stale = true);
+
+        // Enqueue new jobs
         syncJobs.ForEach(x => _pendingQueue.Enqueue(x));
     }
 
@@ -67,6 +101,9 @@ public class JobQueue
         return (pendingJobs, syncingJobs);
     }
 
+    /// <summary>
+    /// Find jobs whose worker may have died and do cleanup.
+    /// </summary>
     private void CheckLostJobs()
     {
         // we need to acquire a write lock here
@@ -78,26 +115,38 @@ public class JobQueue
             {
                 var taskStartedAt = job.TaskStartedAt;
                 var timeout = job.MirrorItem.Config.Sync!.Timeout.IntervalFree!.Value;
+
+                // if timeout
                 if (taskStartedAt.Add(timeout).Add(CoolDown) < DateTime.Now)
                 {
+                    // remove from syncing dict
                     jobs.Add(job);
                     _syncingDict.Remove(guid, out _);
                 }
             }
         }
 
+        // log and re-enqueue the job
         foreach (var job in jobs)
         {
             _log.LogWarning("Job {guid}({id}) took too long, marking as failed", job.Guid,
                 job.MirrorItem.Config.Id);
             job.MirrorItem.LastSyncAt = job.TaskStartedAt;
             _stateStore.SetMirrorInfo(MirrorStatus.Failed, job.MirrorItem);
-            var newJob = new SyncJob(job);
-            newJob.TaskShouldStartAt = DateTime.Now;
+
+            if (job.Stale) continue;
+
+            var newJob = new SyncJob(job)
+            {
+                TaskShouldStartAt = DateTime.Now
+            };
             _pendingQueue.Enqueue(newJob);
         }
     }
 
+    /// <summary>
+    /// Set the job's TaskShouldStartAt to Now. <seealso cref="TryGetNewJob"/>
+    /// </summary>
     public void ForceRefresh(string mirrorId)
     {
         if (string.IsNullOrWhiteSpace(mirrorId))
@@ -110,21 +159,26 @@ public class JobQueue
         }
     }
 
+    /// <summary>
+    /// Get a new job for the worker, if available.
+    /// </summary>
     public bool TryGetNewJob(in string workerId, [MaybeNullWhen(false)] out SyncJob job)
     {
         LastActive = DateTime.Now;
         // worker should report a fail job if time exceeds limit
-        // so we assume worker encountered an error if it takes too long
+        // so we assume the worker has encountered an error when timeout
         CheckLostJobs();
 
         using var _ = new ScopeReadLock(_rwLock);
 
+        // deque a job from the queue
         var hasJob = _pendingQueue.TryDequeue(out job);
         if (!hasJob) return false;
 
-        // is sync interval passed?
+        // check for start time
         if (job!.TaskShouldStartAt > DateTime.Now)
         {
+            // if the task is not ready
             if (!_forceRefreshDict.TryRemove(job.MirrorItem.Config.Id, out var _))
             {
                 // enqueue the item again
@@ -132,6 +186,7 @@ public class JobQueue
                 return false;
             }
 
+            // or the task was force refreshed, start it now
             job.TaskShouldStartAt = DateTime.Now;
         }
 

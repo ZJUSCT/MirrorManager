@@ -20,16 +20,32 @@ public enum PullStrategy
 
 public enum IntervalType
 {
+    /// <summary>
+    /// Calculate based on the last sync time.
+    /// </summary>
     Free,
+    /// <summary>
+    /// Sync after the specified time.
+    /// TODO: Not implemented
+    /// </summary>
     Fixed
 }
 
 [method: JsonConstructor]
 public record I18NField(string En, string Zh);
 
+/// <summary>
+/// Raw JSON object for mirror info.
+/// </summary>
 [method: JsonConstructor]
 public record MirrorInfoRaw(I18NField Name, I18NField Description, string Type, string Upstream, string Url);
 
+/// <summary>
+/// Mirror info.
+/// All fields are unrelated to sync, except <c>Type</c> which controls
+/// if the mirror should be added to sync queue.
+/// <seealso cref="SyncType"/>
+/// </summary>
 public class MirrorInfo
 {
     public MirrorInfo()
@@ -64,6 +80,10 @@ public record VolumeInfo(string Src, string Dst, bool ReadOnly);
 
 public record IntervalInfoRaw(string Type, string Value);
 
+/// <summary>
+/// Calculates the next sync time based on the last sync time.
+/// <seealso cref="IntervalType"/>
+/// </summary>
 public partial class IntervalInfo
 {
     [GeneratedRegex(@"(\d+)s")]
@@ -143,6 +163,9 @@ public partial class IntervalInfo
     }
 }
 
+/// <summary>
+/// Raw JSON object for sync info.
+/// </summary>
 [method: JsonConstructor]
 public record SyncInfoRaw(
     string JobName,
@@ -154,6 +177,9 @@ public record SyncInfoRaw(
     List<string> Command,
     List<string> Environments);
 
+/// <summary>
+/// Sync info for a mirror.
+/// </summary>
 public class SyncInfo
 {
     public SyncInfo()
@@ -189,9 +215,15 @@ public class SyncInfo
     public required List<string> Environments { get; init; }
 }
 
+/// <summary>
+/// Raw JSON object for config info.
+/// </summary>
 [method: JsonConstructor]
 public record ConfigInfoRaw(string Id, MirrorInfoRaw Info, SyncInfoRaw? Sync);
 
+/// <summary>
+/// A config info is a mirror info with an optional sync info.
+/// </summary>
 public class ConfigInfo
 {
     public ConfigInfo()

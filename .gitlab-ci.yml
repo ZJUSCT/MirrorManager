@@ -12,7 +12,7 @@ before_script:
 
 build-manager:
   stage: build
-  image: docker:26
+  image: git.zju.edu.cn:5050/image/docker:26
   tags:
     - dind
   script:
@@ -24,7 +24,7 @@ build-manager:
 
 deploy:
   stage: deploy
-  image: docker:26-cli
+  image: git.zju.edu.cn:5050/image/docker:26-cli
   tags:
     - dind
   only:

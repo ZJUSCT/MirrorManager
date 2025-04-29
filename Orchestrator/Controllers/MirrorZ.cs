@@ -29,6 +29,12 @@ public class MirrorZInfo(IConfiguration conf, ILogger<MirrorZInfo> log, JobQueue
         return "U";
     }
 
+    [HttpHead("")]
+    public ActionResult PongMirrorZ()
+    {
+        return Ok();
+    }
+
     /// <summary>
     /// Return mirrors' status in mirrorz's format.
     /// </summary>
